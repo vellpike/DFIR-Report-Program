@@ -27,19 +27,22 @@ class ReportApp:
         self.root = root
         self.root.title("Report Generator")
         
+        # List to track DateEntry widget for calendar control
+        self.date_entries = []
+        
         # Initialize dictionary if pyenchant is available
         if enchant:
             self.dictionary = enchant.Dict("en_US")
         else:
             self.dictionary = None
         
-        # Report Number (Row 0)
+        # Row 0: Report Number
         tk.Label(root, text="Report Number:").grid(row=0, column=0, sticky='w')
         self.report_number = ttk.Entry(root)
         self.report_number.grid(row=0, column=1, padx=10, pady=5)
         add_context_menu(self.report_number)
         
-        # Executive Summary (Row 1)
+        # Row 1: Executive Summary
         tk.Label(root, text="Executive Summary:").grid(row=1, column=0, sticky='w')
         self.summary_text = scrolledtext.ScrolledText(root, width=60, height=10)
         self.summary_text.grid(row=1, column=1, padx=10, pady=5)
@@ -47,67 +50,83 @@ class ReportApp:
         self.summary_text.tag_config("misspelled", foreground="red", underline=True, background="yellow")
         self.summary_text.tag_bind("misspelled", "<Button-3>", self.on_misspelled_right_click)
         
-        # Spell Check Button (Row 1, Column 2)
+        # Row 1, Column 2: Spell Check Button
         self.spell_check_button = ttk.Button(root, text="Spell Check", command=self.spell_check_executive_summary)
         self.spell_check_button.grid(row=1, column=2, padx=5, pady=5, sticky='n')
         
-        # Item Request Date (Row 2)
-        tk.Label(root, text="Item Request Date:").grid(row=2, column=0, sticky='w')
-        self.drop_off_date = DateEntry(root, width=12, background='darkblue', foreground='white', borderwidth=2)
-        self.drop_off_date.grid(row=2, column=1, padx=10, pady=5)
+        # Row 2: Single Date Entry for both Request and Dropoff
+        tk.Label(root, text="Date:").grid(row=2, column=0, sticky='w')
+        self.date_entry = DateEntry(root, state="readonly", width=12, background='darkblue', foreground='white', borderwidth=2)
+        self.date_entry.grid(row=2, column=1, padx=10, pady=5)
+        add_context_menu(self.date_entry)
+        self.date_entries.append(self.date_entry)
+        self.date_entry.bind("<FocusIn>", lambda e: self.close_calendars(self.date_entry))
         
-        # Dropoff Person (Row 3)
+        # Row 3: Dropoff Person
         tk.Label(root, text="Dropoff Person:").grid(row=3, column=0, sticky='w')
         self.drop_off_person = ttk.Entry(root)
         self.drop_off_person.grid(row=3, column=1, padx=10, pady=5)
         add_context_menu(self.drop_off_person)
         
-        # Dropoff Date (Row 4)
-        tk.Label(root, text="Dropoff Date:").grid(row=4, column=0, sticky='w')
-        self.dropoff_date = DateEntry(root, width=12, background='darkblue', foreground='white', borderwidth=2)
-        self.dropoff_date.grid(row=4, column=1, padx=10, pady=5)
-        
-        # Legal Basis (Row 5)
-        tk.Label(root, text="Legal Basis:").grid(row=5, column=0, sticky='w')
+        # Row 4: Legal Basis
+        tk.Label(root, text="Legal Basis:").grid(row=4, column=0, sticky='w')
         self.legal_basis = ttk.Combobox(root, values=["Search Warrant", "Consent", "Abandoned Property", "Deceased Person"])
-        self.legal_basis.grid(row=5, column=1, padx=10, pady=5)
+        self.legal_basis.grid(row=4, column=1, padx=10, pady=5)
         
-        # Program Used (Row 6) - Using Checkbuttons for multiple selections
-        tk.Label(root, text="Program Used:").grid(row=6, column=0, sticky='w')
-        self.program_used_vars = {}
+        # Row 5: Program Used with Version boxes
+        tk.Label(root, text="Program Used:").grid(row=5, column=0, sticky='w')
+        self.program_used_info = {}  # mapping option -> (BooleanVar, version Entry)
         program_options = ["Cellebrite", "GrayKey", "FTK Imager", "FEX", "FTK", "Other"]
         program_frame = tk.Frame(root)
-        program_frame.grid(row=6, column=1, padx=10, pady=5, sticky='w')
+        program_frame.grid(row=5, column=1, padx=10, pady=5, sticky='w')
         for option in program_options:
+            row_frame = tk.Frame(program_frame)
+            row_frame.pack(anchor='w')
             var = tk.BooleanVar()
-            cb = tk.Checkbutton(program_frame, text=option, variable=var)
-            cb.pack(side=tk.LEFT, padx=5)
-            self.program_used_vars[option] = var
+            cb = tk.Checkbutton(row_frame, text=option, variable=var)
+            cb.pack(side='left')
+            label_ver = tk.Label(row_frame, text="Version:")
+            label_ver.pack(side='left')
+            entry_ver = ttk.Entry(row_frame, width=10)
+            entry_ver.pack(side='left', padx=5)
+            self.program_used_info[option] = (var, entry_ver)
         
-        # Decoder Used (Row 7) - Using Checkbuttons for multiple selections
-        tk.Label(root, text="Decoder Used:").grid(row=7, column=0, sticky='w')
-        self.decoder_used_vars = {}
+        # Row 6: Decoder Used with Version boxes
+        tk.Label(root, text="Decoder Used:").grid(row=6, column=0, sticky='w')
+        self.decoder_used_info = {}  # mapping option -> (BooleanVar, version Entry)
         decoder_options = ["Physical Analyzer", "Axiom", "FEX", "X-Ways", "FTK", "Other"]
         decoder_frame = tk.Frame(root)
-        decoder_frame.grid(row=7, column=1, padx=10, pady=5, sticky='w')
+        decoder_frame.grid(row=6, column=1, padx=10, pady=5, sticky='w')
         for option in decoder_options:
+            row_frame = tk.Frame(decoder_frame)
+            row_frame.pack(anchor='w')
             var = tk.BooleanVar()
-            cb = tk.Checkbutton(decoder_frame, text=option, variable=var)
-            cb.pack(side=tk.LEFT, padx=5)
-            self.decoder_used_vars[option] = var
+            cb = tk.Checkbutton(row_frame, text=option, variable=var)
+            cb.pack(side='left')
+            label_ver = tk.Label(row_frame, text="Version:")
+            label_ver.pack(side='left')
+            entry_ver = ttk.Entry(row_frame, width=10)
+            entry_ver.pack(side='left', padx=5)
+            self.decoder_used_info[option] = (var, entry_ver)
         
-        # MD5 Hash Values (Row 8)
+        # Row 7: Global Software Version
+        tk.Label(root, text="Global Software Version:").grid(row=7, column=0, sticky='w')
+        self.software_version = ttk.Entry(root)
+        self.software_version.grid(row=7, column=1, padx=10, pady=5)
+        add_context_menu(self.software_version)
+        
+        # Row 8: MD5 Hash Values
         tk.Label(root, text="MD5 Hash Values:").grid(row=8, column=0, sticky='w')
         self.md5_hash = scrolledtext.ScrolledText(root, width=60, height=5)
         self.md5_hash.grid(row=8, column=1, padx=10, pady=5)
         add_context_menu(self.md5_hash)
         
-        # Disposition Date (Row 9)
+        # Row 9: Disposition Date
         tk.Label(root, text="Disposition Date:").grid(row=9, column=0, sticky='w')
-        self.disposition_date = DateEntry(root, width=12, background='darkblue', foreground='white', borderwidth=2)
+        self.disposition_date = DateEntry(root, state="readonly", width=12, background='darkblue', foreground='white', borderwidth=2)
         self.disposition_date.grid(row=9, column=1, padx=10, pady=5)
         
-        # Disposition (Row 10)
+        # Row 10: Disposition
         tk.Label(root, text="Disposition:").grid(row=10, column=0, sticky='w')
         self.disposition = ttk.Combobox(root, values=[
             "returned to the lead Investigator.",
@@ -117,26 +136,38 @@ class ReportApp:
         ])
         self.disposition.grid(row=10, column=1, padx=10, pady=5)
         
-        # Devices Section: Add Device Button (Row 11)
+        # Row 11: Devices Section: Add and Delete Device Buttons
         self.devices = []
         self.add_device_button = ttk.Button(root, text="Add Device", command=self.add_device)
-        self.add_device_button.grid(row=11, column=1, pady=10)
+        self.add_device_button.grid(row=11, column=0, pady=10)
+        self.delete_device_button = ttk.Button(root, text="Delete Device", command=self.delete_device)
+        self.delete_device_button.grid(row=11, column=1, pady=10)
         
-        # Display Saved Devices (Row 12)
+        # Row 12: Display Saved Devices
         tk.Label(root, text="Saved Devices:").grid(row=12, column=0, sticky='w')
         self.devices_listbox = tk.Listbox(root, width=100, height=10)
         self.devices_listbox.grid(row=12, column=1, padx=10, pady=5)
         self.devices_listbox.bind('<Double-Button-1>', self.edit_device)
         
-        # Generate Report Button (Row 13)
+        # Row 13: Generate Report Button
         self.generate_button = ttk.Button(root, text="Generate Report", command=self.generate_report)
         self.generate_button.grid(row=13, column=1, pady=10)
-
+    
+    def close_calendars(self, current_widget):
+        # Close calendar popups from other DateEntry widgets if open
+        for widget in self.date_entries:
+            if widget is not current_widget:
+                try:
+                    if hasattr(widget, "_calendar") and widget._calendar is not None:
+                        if widget._calendar.winfo_exists():
+                            widget._calendar.destroy()
+                except tk.TclError:
+                    pass
+    
     def spell_check_executive_summary(self):
         if self.dictionary is None:
             messagebox.showerror("Spell Check Error", "pyenchant is not installed.\nInstall it using 'pip install pyenchant'")
             return
-
         text_widget = self.summary_text
         content = text_widget.get("1.0", tk.END)
         text_widget.tag_remove("misspelled", "1.0", tk.END)
@@ -149,7 +180,7 @@ class ReportApp:
                 text_widget.tag_add("misspelled", start_index, end_index)
                 misspelled_count += 1
         messagebox.showinfo("Spell Check", f"Spell check complete.\nMisspelled words found: {misspelled_count}")
-
+    
     def on_misspelled_right_click(self, event):
         if self.dictionary is None:
             return
@@ -162,21 +193,22 @@ class ReportApp:
         menu = tk.Menu(widget, tearoff=0)
         if suggestions:
             for suggestion in suggestions[:5]:
-                menu.add_command(label=suggestion, command=lambda s=suggestion: self.replace_word(widget, word_start, word_end, s))
+                menu.add_command(label=suggestion,
+                                 command=lambda s=suggestion: self.replace_word(widget, word_start, word_end, s))
         else:
             menu.add_command(label="No suggestions", state=tk.DISABLED)
         menu.tk_popup(event.x_root, event.y_root)
-
+    
     def replace_word(self, widget, start, end, replacement):
         widget.delete(start, end)
         widget.insert(start, replacement)
         widget.tag_remove("misspelled", start, f"{start}+{len(replacement)}c")
-
+    
     def add_device(self, device_info=None, index=None):
         device_window = tk.Toplevel(self.root)
         device_window.title("Add Device" if device_info is None else "Edit Device")
         
-        # Common field: Guardian Item Number (for all devices)
+        # Common field: Guardian Item Number
         tk.Label(device_window, text="Guardian Item Number:").grid(row=0, column=0, sticky="w")
         guardian_entry = ttk.Entry(device_window)
         guardian_entry.grid(row=0, column=1, padx=10, pady=5)
@@ -189,7 +221,7 @@ class ReportApp:
         device_type_cb.grid(row=1, column=1, padx=10, pady=5)
         device_type_cb.set("Mobile Device")
         
-        # Container for device-type–specific fields
+        # Container for device-type-specific fields
         fields_container = tk.Frame(device_window)
         fields_container.grid(row=2, column=0, columnspan=2, padx=10, pady=5)
         frames = {}
@@ -459,6 +491,80 @@ class ReportApp:
         device_type_cb.bind("<<ComboboxSelected>>", lambda e: show_frame(device_type_cb.get()))
         show_frame(device_type_cb.get())
         
+        # If editing, pre-populate fields
+        if device_info is not None:
+            guardian_entry.insert(0, device_info.get("Guardian Item Number", ""))
+            device_type_cb.set(device_info.get("Device Type", "Mobile Device"))
+            show_frame(device_type_cb.get())
+            dtype = device_info.get("Device Type", "Mobile Device")
+            if dtype == "Mobile Device":
+                mobile_state.set(device_info.get("BFU/AFU", ""))
+                mobile_airplane.set(device_info.get("Airplane Mode", ""))
+                mobile_sd.set(device_info.get("Micro SD Present", ""))
+                mobile_make.set(device_info.get("Make", ""))
+                mobile_model.insert(0, device_info.get("Model", ""))
+                mobile_sim.set(device_info.get("SIM Present", ""))
+                mobile_iccid.insert(0, device_info.get("ICCID", ""))
+                mobile_phone.insert(0, device_info.get("Phone Number", ""))
+                mobile_serial.insert(0, device_info.get("Serial Number", ""))
+                mobile_imei.insert(0, device_info.get("IMEI", ""))
+                mobile_acq.set(device_info.get("Acquisition Type", ""))
+            elif dtype == "Hard Drive":
+                hd_brand.insert(0, device_info.get("Brand", ""))
+                hd_capacity.insert(0, device_info.get("Capacity", ""))
+                hd_interface.set(device_info.get("Interface Type", ""))
+                hd_model.insert(0, device_info.get("Model", ""))
+                hd_serial.insert(0, device_info.get("Serial Number", ""))
+                hd_firmware.insert(0, device_info.get("Firmware Version", ""))
+                hd_condition.set(device_info.get("Condition", ""))
+            elif dtype == "SSD":
+                ssd_brand.insert(0, device_info.get("Brand", ""))
+                ssd_capacity.insert(0, device_info.get("Capacity", ""))
+                ssd_interface.set(device_info.get("Interface Type", ""))
+                ssd_model.insert(0, device_info.get("Model", ""))
+                ssd_serial.insert(0, device_info.get("Serial Number", ""))
+                ssd_firmware.insert(0, device_info.get("Firmware Version", ""))
+                ssd_condition.set(device_info.get("Condition", ""))
+            elif dtype == "Drone":
+                drone_manufacturer.set(device_info.get("Manufacturer", ""))
+                drone_model.insert(0, device_info.get("Model", ""))
+                drone_serial.insert(0, device_info.get("Serial Number", ""))
+                drone_firmware.insert(0, device_info.get("Firmware Version", ""))
+                drone_battery.insert(0, device_info.get("Battery Health", ""))
+                drone_camera.insert(0, device_info.get("Camera Resolution", ""))
+                drone_acq.insert(0, device_info.get("Acquisition Type", ""))
+            elif dtype == "Infotainment System":
+                info_manuf.insert(0, device_info.get("Manufacturer", ""))
+                info_model.insert(0, device_info.get("Model", ""))
+                info_soft.insert(0, device_info.get("Software Version", ""))
+                info_serial.insert(0, device_info.get("Serial Number", ""))
+                info_firmware.insert(0, device_info.get("Firmware Version", ""))
+                info_vehicle_make.insert(0, device_info.get("Vehicle Make", ""))
+                info_vehicle_model.insert(0, device_info.get("Vehicle Model", ""))
+            elif dtype == "Desktop Computer":
+                desk_manuf.insert(0, device_info.get("Manufacturer", ""))
+                desk_model.insert(0, device_info.get("Model", ""))
+                desk_serial.insert(0, device_info.get("Serial Number", ""))
+                desk_os.insert(0, device_info.get("Operating System", ""))
+                desk_cpu.insert(0, device_info.get("CPU", ""))
+                desk_ram.insert(0, device_info.get("RAM", ""))
+                desk_storage.insert(0, device_info.get("Storage Capacity", ""))
+                desk_acq.insert(0, device_info.get("Acquisition Type", ""))
+            elif dtype == "Laptop":
+                lap_manuf.insert(0, device_info.get("Manufacturer", ""))
+                lap_model.insert(0, device_info.get("Model", ""))
+                lap_serial.insert(0, device_info.get("Serial Number", ""))
+                lap_os.insert(0, device_info.get("Operating System", ""))
+                lap_cpu.insert(0, device_info.get("CPU", ""))
+                lap_ram.insert(0, device_info.get("RAM", ""))
+                lap_storage.insert(0, device_info.get("Storage Capacity", ""))
+                lap_battery.insert(0, device_info.get("Battery Health", ""))
+            elif dtype == "All Other":
+                other_desc.insert("1.0", device_info.get("Device Description", ""))
+                other_make.insert(0, device_info.get("Make", ""))
+                other_model.insert(0, device_info.get("Model", ""))
+                other_serial.insert(0, device_info.get("Serial Number", ""))
+        
         def save_device():
             selected_type = device_type_cb.get()
             data = {"Device Type": selected_type, "Guardian Item Number": guardian_entry.get()}
@@ -544,6 +650,16 @@ class ReportApp:
         save_button = ttk.Button(device_window, text="Save Device", command=save_device)
         save_button.grid(row=3, column=0, columnspan=2, pady=10)
     
+    def delete_device(self):
+        selection = self.devices_listbox.curselection()
+        if not selection:
+            messagebox.showerror("Error", "Please select a device to delete.")
+            return
+        index = selection[0]
+        if messagebox.askyesno("Confirm Delete", "Are you sure you want to delete the selected device?"):
+            del self.devices[index]
+            self.devices_listbox.delete(index)
+    
     def edit_device(self, event):
         selection = self.devices_listbox.curselection()
         if selection:
@@ -554,22 +670,47 @@ class ReportApp:
     def generate_report(self):
         if (not self.report_number.get() or not self.summary_text.get("1.0", 'end-1c') or 
             not self.drop_off_person.get() or not self.legal_basis.get() or 
-            not any(var.get() for var in self.program_used_vars.values()) or 
-            not any(var.get() for var in self.decoder_used_vars.values()) or 
+            not any(var.get() for var, _ in self.program_used_info.values()) or 
+            not any(var.get() for var, _ in self.decoder_used_info.values()) or 
             not self.md5_hash.get("1.0", 'end-1c') or not self.disposition.get()):
             messagebox.showerror("Error", "Please fill in all fields before generating the report.")
             return
+        
         report_number = self.report_number.get()
         executive_summary = self.summary_text.get("1.0", 'end-1c')
-        item_drop_off_date = self.drop_off_date.get()
+        # Use the same date for both Request and Dropoff
+        item_drop_off_date = self.date_entry.get()  # Request Date
         drop_off_person = self.drop_off_person.get()
-        dropoff_date = self.dropoff_date.get()
+        dropoff_date = self.date_entry.get()  # same as Request Date
         legal_basis = self.legal_basis.get()
-        program_used = ", ".join([option for option, var in self.program_used_vars.items() if var.get()])
-        decoder_used = ", ".join([option for option, var in self.decoder_used_vars.items() if var.get()])
+        
+        # Process Program Used info
+        program_used_list = []
+        for option, (var, entry) in self.program_used_info.items():
+            if var.get():
+                ver = entry.get().strip()
+                if ver:
+                    program_used_list.append(f"{option} (Version: {ver})")
+                else:
+                    program_used_list.append(option)
+        program_used = ", ".join(program_used_list)
+        
+        # Process Decoder Used info
+        decoder_used_list = []
+        for option, (var, entry) in self.decoder_used_info.items():
+            if var.get():
+                ver = entry.get().strip()
+                if ver:
+                    decoder_used_list.append(f"{option} (Version: {ver})")
+                else:
+                    decoder_used_list.append(option)
+        decoder_used = ", ".join(decoder_used_list)
+        
+        software_version = self.software_version.get()
         md5_hash_values = self.md5_hash.get("1.0", 'end-1c')
         disposition_date = self.disposition_date.get()
         disposition = self.disposition.get()
+        
         template = f"""
 Digital Forensics Report
 Report Number: {report_number}
@@ -610,6 +751,8 @@ The device(s) was/were acquired using {program_used}.
 The listed item(s) were connected to a forensic workstation computer, and the extraction method was chosen accordingly.
 
 The extracted data was then loaded into {decoder_used}.
+
+Software Version: {software_version}
 
 The analysis software decodes the raw extracted data, allowing a trained digital forensic examiner to view the information in a human-readable format.
 
@@ -677,7 +820,177 @@ End of Report.
         
         export_button = ttk.Button(report_window, text="Export to .txt", command=export_report)
         export_button.pack(pady=5)
+    
+    def delete_device(self):
+        selection = self.devices_listbox.curselection()
+        if not selection:
+            messagebox.showerror("Error", "Please select a device to delete.")
+            return
+        index = selection[0]
+        if messagebox.askyesno("Confirm Delete", "Are you sure you want to delete the selected device?"):
+            del self.devices[index]
+            self.devices_listbox.delete(index)
+    
+    def edit_device(self, event):
+        selection = self.devices_listbox.curselection()
+        if selection:
+            index = selection[0]
+            device_info = self.devices[index]
+            self.add_device(device_info=device_info, index=index)
+    
+    def generate_report(self):
+        if (not self.report_number.get() or not self.summary_text.get("1.0", 'end-1c') or 
+            not self.drop_off_person.get() or not self.legal_basis.get() or 
+            not any(var.get() for var, _ in self.program_used_info.values()) or 
+            not any(var.get() for var, _ in self.decoder_used_info.values()) or 
+            not self.md5_hash.get("1.0", 'end-1c') or not self.disposition.get()):
+            messagebox.showerror("Error", "Please fill in all fields before generating the report.")
+            return
+        
+        report_number = self.report_number.get()
+        executive_summary = self.summary_text.get("1.0", 'end-1c')
+        item_drop_off_date = self.date_entry.get()  # Request Date (used for both)
+        drop_off_person = self.drop_off_person.get()
+        dropoff_date = self.date_entry.get()  # same as Request Date
+        legal_basis = self.legal_basis.get()
+        
+        # Process Program Used info
+        program_used_list = []
+        for option, (var, entry) in self.program_used_info.items():
+            if var.get():
+                ver = entry.get().strip()
+                if ver:
+                    program_used_list.append(f"{option} (Version: {ver})")
+                else:
+                    program_used_list.append(option)
+        program_used = ", ".join(program_used_list)
+        
+        # Process Decoder Used info
+        decoder_used_list = []
+        for option, (var, entry) in self.decoder_used_info.items():
+            if var.get():
+                ver = entry.get().strip()
+                if ver:
+                    decoder_used_list.append(f"{option} (Version: {ver})")
+                else:
+                    decoder_used_list.append(option)
+        decoder_used = ", ".join(decoder_used_list)
+        
+        software_version = self.software_version.get()
+        md5_hash_values = self.md5_hash.get("1.0", 'end-1c')
+        disposition_date = self.disposition_date.get()
+        disposition = self.disposition.get()
+        
+        template = f"""
+Digital Forensics Report
+Report Number: {report_number}
 
+Introduction:
+
+This report contains information about digital devices provided to the Raleigh Police Department's Digital Forensics Lab for the crime referenced in the master report, including details on the acquisition and decoding of the digital items processed by the lab. The report may only partially analyze some of the digital evidence obtained. Any analysis performed will be annotated with the header "Analysis" and/or "Executive Summary," depending on the specificity of the investigator's request.
+
+Executive Summary:
+  
+{executive_summary}
+
+Acquisition:
+
+On {item_drop_off_date}, {drop_off_person} submitted a request for a digital forensic examination on the listed digital device(s).
+
+The listed device(s) were brought to the lab on {dropoff_date}. The state of each device upon arrival is listed next to it below.
+
+If a device arrived at the lab powered on after being confiscated, it is considered HOT; if it arrived powered off, it is considered COLD. If unknown, it is listed as UNKNOWN.
+
+Legal Authority: {legal_basis}
+
+Device(s):
+"""
+        for device in self.devices:
+            template += "\n----------------------------------------\n"
+            template += f"Device Type: {device.get('Device Type', 'N/A')}\n"
+            for key, value in device.items():
+                if key != "Device Type":
+                    template += f"{key}: {value}\n"
+            template += "----------------------------------------\n"
+        
+        template += f"""
+Methodology:
+
+The device(s) was/were acquired using {program_used}.
+
+The listed item(s) were connected to a forensic workstation computer, and the extraction method was chosen accordingly.
+
+The extracted data was then loaded into {decoder_used}.
+
+Software Version: {software_version}
+
+The analysis software decodes the raw extracted data, allowing a trained digital forensic examiner to view the information in a human-readable format.
+
+All extracted data was exported and saved in a separate folder in a report format.
+
+The following hash values were obtained for the extracted data after being placed in a .zip container.
+
+This protects the data and provides a long-term storage method in our digital evidence management system (DEMS).
+
+The data was hashed using the MD5 algorithm, which provides a unique 32-hexadecimal value for the file.
+
+MD5 Hash Values:
+
+{md5_hash_values}
+
+The Raleigh Police Department uses Cellebrite's Guardian solution to store and maintain digital evidence in the cloud.
+The above files and their hash values are stored in the digital evidence management system.
+
+On {disposition_date}, the device(s) was/were {disposition}.
+
+The digital evidence obtained was placed into our digital evidence management system, where the lead investigator or requesting officer is provided an electronic copy.
+
+Forensic Tools Used: 
+
+{program_used}, {decoder_used}
+
+Definitions:
+
+Hash Value: A unique code generated when a file or data is processed through a mathematical algorithm, similar to a digital fingerprint.
+
+Physical Extraction: The process of obtaining a copy of every binary data in a device's flash memory, used when traditional methods are not possible or the device is damaged.
+
+Full File System Extraction: A complete copy of all the data stored on a device, including file organization information.
+
+Advanced Logical Extraction: A method to obtain a copy of selected data (e.g., pictures, contacts, messages) that is directly accessible to the user.
+
+SIM Data Extraction: A process to obtain data from the SIM card, which is a small, removable smart card used in mobile devices that contains information such as contacts, text messages, and network authentication details.
+
+Hard Drive: The primary storage device of a computer, which stores all software programs and data.
+
+Solid State Drive (SSD): A storage device that uses integrated circuit assemblies to store data persistently.
+
+Flash Memory: A type of non-volatile memory that can be electrically erased and reprogrammed.
+
+End of Report.
+"""
+        report_window = tk.Toplevel(self.root)
+        report_window.title("Generated Report")
+        report_text = scrolledtext.ScrolledText(report_window, width=100, height=40)
+        report_text.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+        report_text.insert("1.0", template)
+        report_text.configure(state='disabled')
+        
+        def export_report():
+            file_path = filedialog.asksaveasfilename(defaultextension=".txt",
+                                                     filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")],
+                                                     title="Save Report As")
+            if file_path:
+                try:
+                    with open(file_path, "w", encoding="utf-8") as f:
+                        f.write(template)
+                    messagebox.showinfo("Export Success", f"Report successfully exported to:\n{file_path}")
+                except Exception as e:
+                    messagebox.showerror("Export Error", f"An error occurred while exporting the report:\n{e}")
+        
+        export_button = ttk.Button(report_window, text="Export to .txt", command=export_report)
+        export_button.pack(pady=5)
+    
 if __name__ == "__main__":
     root = tk.Tk()
     app = ReportApp(root)
